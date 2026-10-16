@@ -1,0 +1,34 @@
+# FirstDrop 热搜聚合分析：web 看板 + 采集调度 双服务
+# 用法：
+#   docker compose up --build -d
+#   首次启动后需等一个采集周期（默认几分钟）看板才有数据。
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      # 管理接口鉴权（改数据源配置 / 触发溯源 / 审核别名等 POST 接口）：
+      # 留空 = 远程一律禁止写操作（本地 loopback 仍可管理）；
+      # 设置后远程调用需携带 Authorization: Bearer <ADMIN_TOKEN>。
+      # 公网部署前务必设置强随机值，例如：export ADMIN_TOKEN=$(openssl rand -hex 24)
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      LLM_BRIEF_PROVIDER: ${LLM_BRIEF_PROVIDER:-}
+      LLM_BRIEF_API_KEY: ${LLM_BRIEF_API_KEY:-}
+      LLM_BRIEF_MODEL: ${LLM_BRIEF_MODEL:-}
+      LLM_BRIEF_API_BASE: ${LLM_BRIEF_API_BASE:-}
+    restart: unless-stopped
+
+  scheduler:
+    build: .
+    command: python -m app.runner --schedule --brief
+    volumes:
+      - ./data:/app/data
+    environment:
+      LLM_BRIEF_PROVIDER: ${LLM_BRIEF_PROVIDER:-}
+      LLM_BRIEF_API_KEY: ${LLM_BRIEF_API_KEY:-}
+      LLM_BRIEF_MODEL: ${LLM_BRIEF_MODEL:-}
+      LLM_BRIEF_API_BASE: ${LLM_BRIEF_API_BASE:-}
+    restart: unless-stopped

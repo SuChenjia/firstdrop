@@ -1,0 +1,19 @@
+# 运行数据不入镜像（以 volume 挂载）
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+
+# 版本库 / 文档 / 本地文件
+.git/
+.gitignore
+docs/
+CHANGELOG.md
+.env
+.venv/
+.idea/
+.vscode/

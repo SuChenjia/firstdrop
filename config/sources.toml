@@ -1,0 +1,90 @@
+# =============================================================
+# 数据源注册表（定时采集的唯一事实来源）
+# -------------------------------------------------------------
+# 本文件由看板「数据源配置」页写入，也可手工编辑；代码与数据源解耦。
+#   · 停爬某平台：enabled 改 false（或整段注释/删除，同步时自动置停用）
+#   · 调抓取频率：interval_sec　· 加重试：max_retries / retry_delay_sec
+# 新增数据源 = 写一个适配器类 + 在下面加一段 [[source]]，无需改调度代码。
+# =============================================================
+
+[defaults]
+enabled             = true
+interval_sec        = 300
+max_retries         = 2
+retry_delay_sec     = 5
+enrich_interval_sec = 600
+trace_daily_quota   = 100
+
+# -------------------------------------------------------------
+# 平台清单（每项 enabled=false 即停爬）
+# -------------------------------------------------------------
+
+[[source]]
+code            = "weibo"
+name            = "微博热搜"
+adapter         = "weibo"
+enabled         = true
+interval_sec    = 180
+max_retries     = 2
+retry_delay_sec = 5
+sort_order      = 1
+
+[[source]]
+code            = "baidu"
+name            = "百度热搜"
+adapter         = "baidu"
+enabled         = true
+interval_sec    = 240
+max_retries     = 2
+retry_delay_sec = 5
+sort_order      = 2
+
+[[source]]
+code            = "zhihu"
+name            = "知乎热榜"
+adapter         = "zhihu"
+enabled         = true
+interval_sec    = 300
+max_retries     = 2
+retry_delay_sec = 5
+sort_order      = 3
+
+[[source]]
+code            = "toutiao"
+name            = "头条热榜"
+adapter         = "toutiao"
+enabled         = true
+interval_sec    = 300
+max_retries     = 2
+retry_delay_sec = 5
+sort_order      = 4
+
+[[source]]
+code            = "bilibili"
+name            = "B站热搜"
+adapter         = "bilibili"
+enabled         = true
+interval_sec    = 300
+max_retries     = 2
+retry_delay_sec = 5
+sort_order      = 5
+
+[[source]]
+code            = "36kr"
+name            = "36氪热榜"
+adapter         = "36kr"
+enabled         = true
+interval_sec    = 300
+max_retries     = 2
+retry_delay_sec = 5
+sort_order      = 6
+
+[[source]]
+code            = "wallstreetcn"
+name            = "华尔街见闻"
+adapter         = "wallstreetcn"
+enabled         = true
+interval_sec    = 300
+max_retries     = 2
+retry_delay_sec = 5
+sort_order      = 7

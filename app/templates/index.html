@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>热点聚合 · 实时看板</title>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#161d2e; --panel2:#1d2638; --line:#28324a;
+    --txt:#e8edf7; --dim:#8b97b3; --accent:#4f8cff;
+    --high:#ff4d5e; --medium:#ffa23a; --low:#4fb0ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  header{padding:20px 24px 12px;border-bottom:1px solid var(--line)}
+  h1{margin:0 0 4px;font-size:20px}
+  .sub{color:var(--dim);margin:0;font-size:12px}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:8px 14px;min-width:88px}
+  .stat b{display:block;font-size:19px;color:var(--accent)}
+  .stat span{font-size:11px;color:var(--dim)}
+  nav.tabs{display:flex;gap:6px;padding:12px 24px 0;flex-wrap:wrap}
+  nav.tabs button{background:transparent;border:1px solid var(--line);color:var(--dim);
+    padding:7px 14px;border-radius:8px;cursor:pointer;font-size:13px}
+  nav.tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  main{padding:16px 24px 48px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .chips button{background:var(--panel);border:1px solid var(--line);color:var(--txt);
+    padding:5px 12px;border-radius:20px;cursor:pointer;font-size:12px}
+  .chips button.active{background:var(--panel2);border-color:var(--accent);color:var(--accent)}
+  .board{list-style:none;margin:0;padding:0}
+  .board li{display:flex;gap:12px;align-items:baseline;padding:9px 12px;border-radius:8px;
+    cursor:pointer;border:1px solid transparent}
+  .board li:hover{background:var(--panel);border-color:var(--line)}
+  .pos{width:26px;text-align:right;color:var(--dim);font-variant-numeric:tabular-nums;flex:none}
+  .pos.top{color:var(--medium);font-weight:600}
+  .ttl{flex:1;min-width:0}
+  .tag{font-size:10px;padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:1px;
+    background:var(--panel2);color:var(--dim)}
+  .tag.split{background:#2c2440;color:#b9a3ff}
+  .hot{color:var(--accent);font-variant-numeric:tabular-nums;flex:none;font-size:12px}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:10px;overflow:hidden}
+  th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);font-size:13px}
+  th{color:var(--dim);font-weight:500;font-size:12px;background:var(--panel2)}
+  tr:last-child td{border-bottom:none}
+  .pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;margin-right:4px;
+    background:var(--panel2);color:var(--dim)}
+  .lv{font-weight:600}
+  .lv.high{color:var(--high)} .lv.medium{color:var(--medium)} .lv.low{color:var(--low)}
+  .alert{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--dim);
+    border-radius:10px;padding:10px 14px;margin-bottom:10px}
+  .alert.high{border-left-color:var(--high)}
+  .alert.medium{border-left-color:var(--medium)}
+  .alert.low{border-left-color:var(--low)}
+  .alert .meta{color:var(--dim);font-size:11px;margin-top:4px}
+  .empty{color:var(--dim);padding:24px;text-align:center}
+  .modal{position:fixed;inset:0;background:rgba(6,9,15,.72);display:flex;align-items:center;
+    justify-content:center;padding:24px;z-index:10}
+  .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:20px;max-width:760px;width:100%;max-height:86vh;overflow:auto}
+  .modal-box h3{margin:0 0 4px;font-size:15px}
+  .modal-box .close{float:right;cursor:pointer;color:var(--dim);font-size:18px;line-height:1}
+  .chart{margin-top:14px}
+  .legend{color:var(--dim);font-size:11px;margin-top:6px}
+  .tr{font-size:11px;padding:1px 8px;border-radius:10px;background:var(--panel2);color:var(--dim)}
+  .tr.new{background:#16324f;color:#6fb6ff}
+  .tr.surge{background:#3a1a22;color:#ff6b7a}
+  .tr.drop{background:#2a2f18;color:#cfd46a}
+  .bar{display:inline-block;height:8px;border-radius:4px;background:var(--accent);vertical-align:middle;margin-left:6px}
+  .score{font-variant-numeric:tabular-nums;color:var(--accent);font-weight:600}
+  .btn{font:12px inherit;padding:3px 10px;border-radius:6px;cursor:pointer;border:1px solid var(--line);
+    background:var(--panel2);color:var(--txt);margin-right:4px}
+  .btn.ok{border-color:#2f6b3f;color:#8fe0a4}
+  .btn.no{border-color:#6b2f3a;color:#ff9aa8}
+  .btn.warn{border-color:#6b5a2f;color:#e7c56b}
+  .btn:disabled{opacity:.5;cursor:default}
+  input,select{background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    border-radius:6px;padding:5px 8px;font:12px inherit}
+  input[type=checkbox]{width:16px;height:16px;vertical-align:middle;accent-color:var(--accent)}
+  .cfgbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .cfgbar code,#config code{color:#9fc0ff}
+  .msg-ok{color:#8fe0a4} .msg-no{color:var(--high)}
+</style>
+</head>
+<body>
+<header>
+  <h1>热点聚合 · 实时看板</h1>
+  <p class="sub">7 平台免费接口采集 · 历史留痕 · 跨平台话题对齐 · 爆点预警</p>
+  <div id="stats" class="stats"></div>
+</header>
+
+<nav class="tabs">
+  <button data-tab="latest" class="active">最新榜单</button>
+  <button data-tab="unified">统一数据表</button>
+  <button data-tab="clusters">跨平台话题</button>
+  <button data-tab="entities">实体归一</button>
+  <button data-tab="suggest">别名候选</button>
+  <button data-tab="alerts">爆点预警</button>
+  <button data-tab="health">采集健康度</button>
+  <button data-tab="config">数据源配置</button>
+  <button data-tab="history">历史回溯</button>
+  <button data-tab="trace">首发溯源</button>
+</nav>
+
+<main>
+  <section id="tab-latest">
+    <div id="chips" class="chips"></div>
+    <ol id="board" class="board"><li class="empty">加载中…</li></ol>
+  </section>
+  <section id="tab-unified" hidden>
+    <div id="unified-chips" class="chips"></div>
+    <div id="unified"></div>
+  </section>
+  <section id="tab-clusters" hidden><div id="clusters"></div></section>
+  <section id="tab-entities" hidden>
+    <p class="sub" style="margin:0 0 10px">同一事件跨平台对齐后，把各平台「归一化热度」融合成一个实体级聚合热度（双口径对照）。</p>
+    <div id="entities"></div>
+  </section>
+  <section id="tab-suggest" hidden>
+    <p class="sub" style="margin:0 0 10px">自动挖掘的别名候选（entity_alias_suggest）。「跨平台影响」列由反事实评估得出：若启用该别名，将合并的话题数 / 平台数——<b>影响 0</b> 表示当前对跨平台聚合无增益（按 Q1-B 保留、标为低优先级并自动排到末尾，不丢弃）。「通过」写入正式词典 entity_alias 并启用（下次加工/对齐生效）；「驳回」仅标记；「撤销」把已通过/已驳回的候选退回待审，并移除该次自动写入的词典条目（种子词不受影响）。生成：<code>python -m app.runner --mine</code></p>
+    <div id="suggest-chips" class="chips"></div>
+    <div id="suggest"></div>
+  </section>
+  <section id="tab-alerts" hidden><div id="alerts"></div></section>
+  <section id="tab-health" hidden><div id="health"></div></section>
+  <section id="tab-config" hidden><div id="config"></div></section>
+  <section id="tab-history" hidden>
+    <p class="sub" style="margin:0 0 12px">历史榜单回溯：从 <code>hot_item</code> 历史留痕中按<b>关键词模糊匹配</b>和/或<b>日期</b>筛选过往上榜条目（不含盘点聚合条）。点击任意一行可查看该话题的热度/名次时间线。默认按采集时间倒序，上限 200 条。</p>
+    <div id="history"></div>
+  </section>
+  <section id="tab-trace" hidden>
+    <p class="sub" style="margin:0 0 12px">事件首发溯源：对<b>触发的热点事件</b>（跨平台共振 / 榜首 / 名次跃升 / TOP10 持续）检索其<b>已覆盖源中最早的发声点</b>，附覆盖源清单与置信度。<b>不声称"全网首发"</b>，只保证"已覆盖源中最早"。点击行看首发卡片；「溯源」跑单个事件、「补链」人工指定首发链接（优先于自动结果）、「暂停/恢复」控制跟踪。批量执行 <code>python -m app.runner --trace</code> 或下方按钮。</p>
+    <div id="trace-chips" class="chips"></div>
+    <div id="trace"></div>
+  </section>
+</main>
+
+<div id="modal"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const fmt = n => n==null ? '—' : Number(n).toLocaleString('en-US');
+const esc = s => (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// 中文标题改用 URL 安全的 base64url 传参，避免 query 串中的多字节字符被中间层破坏
+const enc = s => btoa(unescape(encodeURIComponent(s||'')))
+  .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const attr = s => esc((s||'').replace(/\s+/g,' '));
+let PLATFORM = 'all', NAMES = {}, UNIFIED_CAT = 'all', SUGGEST_STATUS = 'pending';
+// 管理鉴权 token（ADMIN_TOKEN 配置后，管理类 GET/POST 需携带）
+let TOKEN = localStorage.getItem('firstdrop_admin_token') || '';
+let AUTH_PROMPTED = false;
+
+function _authHeaders(){
+  return TOKEN ? {'Authorization': 'Bearer ' + TOKEN} : {};
+}
+
+async function api(path){
+  const r = await fetch(path, {headers: _authHeaders()});
+  if((r.status === 401 || r.status === 403) && !AUTH_PROMPTED){
+    AUTH_PROMPTED = true;
+    const t = prompt('管理接口需要鉴权 Token（对应服务端 ADMIN_TOKEN 环境变量）：');
+    if(t){
+      TOKEN = t;
+      localStorage.setItem('firstdrop_admin_token', t);
+      return api(path);
+    }
+  }
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
+
+async function post(path, body){
+  const r = await fetch(path, {method:'POST',
+    headers: {'Content-Type':'application/json', ..._authHeaders()},
+    body: JSON.stringify(body)});
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok || d.error) throw new Error(d.error || ('HTTP '+r.status));
+  return d;
+}
+
+async function loadSummary(){
+  const s = await api('/api/summary');
+  const c = s.counts;
+  $('#stats').innerHTML = [
+    ['采集批次', c.runs], ['榜单条目', c.items], ['去重话题', c.topics],
+    ['跨平台话题', c.multi_clusters], ['实体总数', c.entities], ['跨平台实体', c.multi_entities],
+    ['预警总数', c.alerts], ['高优先级', c.alerts_high],
+    ['统一标准表', c.unified], ['已过滤', c.filtered], ['别名候选待审', c.suggests]
+  ].map(([k,v])=>`<div class="stat"><b>${fmt(v)}</b><span>${k}</span></div>`).join('');
+  NAMES = {};
+  $('#chips').innerHTML = `<button data-p="all" class="active">全部平台</button>` +
+    s.platforms.map(p=>{ NAMES[p.code]=p.name;
+      return `<button data-p="${p.code}">${esc(p.name)}</button>`; }).join('');
+  $('#chips').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    PLATFORM = b.dataset.p;
+    $('#chips').querySelectorAll('button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    renderBoard();
+  });
+  renderHealth(s.health);
+}
+
+async function renderBoard(){
+  const data = await api('/api/latest?platform='+encodeURIComponent(PLATFORM)+'&limit=50');
+  NAMES = data.names || NAMES;
+  const codes = PLATFORM==='all' ? Object.keys(data.boards) : [PLATFORM];
+  const out = [];
+  for(const code of codes){
+    const items = data.boards[code] || [];
+    if(!items.length) continue;
+    out.push(`<li style="cursor:default;padding-bottom:2px;border-bottom:1px solid var(--line)">
+      <b style="width:100%;color:var(--dim);font-weight:600">${esc(NAMES[code]||code)} · ${items.length} 条</b></li>`);
+    for(const it of items){
+      out.push(`<li data-p="${code}" data-n="${attr(it.norm_title)}" data-t="${attr(it.title)}">
+        <span class="pos${it.is_top?' top':''}">${it.position??''}</span>
+        <span class="ttl">${esc(it.title)}${it.is_top?'<span class="tag">置顶</span>':''}${it.source==='split'?'<span class="tag split">盘点拆分</span>':''}${it.label?'<span class="tag">'+esc(it.label)+'</span>':''}</span>
+        <span class="hot">${fmt(it.hot_value)}</span></li>`);
+    }
+  }
+  $('#board').innerHTML = out.length ? out.join('') : '<li class="empty">暂无数据</li>';
+  $('#board').querySelectorAll('li[data-p]').forEach(li=>li.onclick=()=>openTimeline(
+    li.dataset.p, li.dataset.n, li.dataset.t));
+}
+
+async function renderUnified(){
+  const d = await api('/api/unified?limit=300&category='+enc(UNIFIED_CAT));
+  $('#unified-chips').innerHTML = `<button data-c="all" class="${UNIFIED_CAT==='all'?'active':''}">全部行业</button>` +
+    (d.categories||[]).map(c=>`<button data-c="${esc(c)}" class="${UNIFIED_CAT===c?'active':''}">${esc(c)}</button>`).join('');
+  $('#unified-chips').querySelectorAll('button').forEach(b=>b.onclick=()=>{ UNIFIED_CAT=b.dataset.c; renderUnified(); });
+  if(!d.rows.length){ $('#unified').innerHTML='<div class="empty">暂无统一数据（请先执行采集/统一标准表重建）</div>'; return; }
+  const trendCls = {'新晋':'new','飙升':'surge','回落':'drop','稳定':''};
+  const rows = d.rows.map(r=>{
+    const g = r['环比增长率'];
+    const gs = g==null ? '<span style="color:var(--dim)">—</span>'
+      : `<span style="color:${g>=0?'#ff6b7a':'#7cc0ff'}">${(g*100).toFixed(0)}%</span>`;
+    const pct = Math.max(0, Math.min(100, (r['归一化热度']||0)/100));
+    return `<tr>
+      <td style="max-width:320px">${esc(r['词'])}</td>
+      <td>${esc(NAMES[r['来源平台']]||r['来源平台'])}</td>
+      <td>${esc(r['热度口径']||'—')}</td>
+      <td style="text-align:right">${fmt(r['热度原始值'])}</td>
+      <td style="text-align:right"><span class="score">${fmt(r['归一化热度'])}</span>
+        <span class="bar" style="width:${pct}px"></span></td>
+      <td style="text-align:right">${gs}</td>
+      <td><span class="tr ${trendCls[r['趋势标记']]||''}">${esc(r['趋势标记']||'—')}</span></td>
+      <td><span class="pill">${esc(r['分类标签']||'其他')}</span></td>
+      <td>${r['来源']==='split'?'<span class="tag split">盘点拆分</span>':'<span style="color:var(--dim)">—</span>'}</td>
+      <td style="color:var(--dim);font-size:12px">${esc((r['上榜时间']||'').slice(5,16).replace('T',' '))}</td>
+    </tr>`;
+  }).join('');
+  $('#unified').innerHTML = `<table><thead><tr>
+    <th>词</th><th>来源平台</th><th>热度口径</th><th style="text-align:right">热度原始值</th>
+    <th style="text-align:right">归一化热度 (0~10000)</th><th style="text-align:right">环比</th>
+    <th>趋势</th><th>分类</th><th>来源</th><th>上榜时间</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function renderClusters(){
+  const d = await api('/api/clusters?min_platforms=2&limit=200');
+  if(!d.clusters.length){ $('#clusters').innerHTML='<div class="empty">暂无跨平台话题（需 ≥2 个平台描述同一事件）</div>'; return; }
+  const rows = d.clusters.map(c=>{
+    const ps = (c.platforms||'').split(',').map(p=>`<span class="pill">${esc(NAMES[p]||p)}</span>`).join('');
+    return `<tr>
+      <td style="max-width:360px">${esc(c.label)}</td>
+      <td>${ps}</td>
+      <td>${c.platform_count}</td>
+      <td>${fmt(c.peak_hot)}</td>
+      <td>${c.best_position??'—'}</td></tr>`;
+  }).join('');
+  $('#clusters').innerHTML = `<table><thead><tr>
+    <th>代表话题</th><th>覆盖平台</th><th>平台数</th><th>峰值热度</th><th>最佳名次</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function renderEntities(){
+  const d = await api('/api/entities?min_platforms=1&limit=200');
+  if(!d.rows.length){ $('#entities').innerHTML='<div class="empty">暂无实体数据（请先执行采集/统一标准表重建）</div>'; return; }
+  const trendCls = {'新晋':'new','飙升':'surge','回落':'drop','稳定':''};
+  const rows = d.rows.map(r=>{
+    const ps = (r['覆盖平台']||'').split(',').filter(Boolean)
+      .map(p=>`<span class="pill">${esc(NAMES[p]||p)}</span>`).join('');
+    const peak = r['聚合热度_峰值式']||0, joint = r['聚合热度_联合式']||0;
+    return `<tr>
+      <td style="max-width:300px">${esc(r['实体'])}</td>
+      <td><span class="pill">${esc(r['分类标签']||'其他')}</span></td>
+      <td style="text-align:right"><span class="score">${fmt(peak)}</span>
+        <span class="bar" style="width:${Math.max(0,Math.min(100,peak/100))}px"></span></td>
+      <td style="text-align:right"><span class="score" style="color:var(--medium)">${fmt(joint)}</span>
+        <span class="bar" style="width:${Math.max(0,Math.min(100,joint/100))}px;background:var(--medium)"></span></td>
+      <td>${ps}</td>
+      <td style="text-align:right">${r['覆盖平台数']}</td>
+      <td style="text-align:right">${fmt(r['单平台峰值'])}</td>
+      <td style="text-align:right">+${(r['扩散加成']||0).toFixed(0)}</td>
+      <td style="text-align:right">${r['最佳名次']??'—'}</td>
+      <td><span class="tr ${trendCls[r['趋势标记']]||''}">${esc(r['趋势标记']||'—')}</span></td>
+    </tr>`;
+  }).join('');
+  $('#entities').innerHTML = `<table><thead><tr>
+    <th>实体</th><th>分类</th>
+    <th style="text-align:right">聚合热度·峰值式</th>
+    <th style="text-align:right">聚合热度·联合式</th>
+    <th>覆盖平台</th><th style="text-align:right">平台数</th>
+    <th style="text-align:right">单平台峰值</th><th style="text-align:right">扩散加成</th>
+    <th style="text-align:right">最佳名次</th><th>趋势</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function renderAlerts(){
+  const d = await api('/api/alerts?limit=120');
+  if(!d.alerts.length){ $('#alerts').innerHTML='<div class="empty">暂无预警（数据积累越多，预警越准）</div>'; return; }
+  const lvName = {high:'高',medium:'中',low:'低'};
+  $('#alerts').innerHTML = d.alerts.map(a=>{
+    const s = a.signals||{};
+    const bits = [];
+    if(s.platforms) bits.push('覆盖平台：'+s.platforms);
+    if(s.platform_count) bits.push(s.platform_count+' 平台');
+    if(s.heat_ratio) bits.push('热度×'+s.heat_ratio);
+    if(s.pos_gain) bits.push('名次上升 '+s.pos_gain);
+    if(s.is_new) bits.push('新上榜');
+    if(s.high_heat) bits.push('高热度');
+    if(s.position!=null) bits.push('当前第 '+s.position+' 位');
+    if(s.peak_hot) bits.push('峰值热度 '+fmt(s.peak_hot));
+    const who = a.scope==='cluster' ? '跨平台扩散' : esc(NAMES[a.platform_code]||a.platform_code||'');
+    return `<div class="alert ${a.level}">
+      <span class="lv ${a.level}">[${lvName[a.level]||a.level}]</span>
+      ${esc(a.title)}
+      <div class="meta">${who} · 评分 ${Math.round(a.score)} · ${esc(a.created_at)}${bits.length?' · '+esc(bits.join(' / ')):''}</div>
+    </div>`;
+  }).join('');
+}
+
+async function renderSuggest(){
+  const d = await api('/api/suggest?status='+encodeURIComponent(SUGGEST_STATUS)+'&limit=500');
+  const cnt = d.counts || {};
+  const tabs = [['pending','待审'],['approved','已通过'],['rejected','已驳回'],['all','全部']];
+  $('#suggest-chips').innerHTML = tabs.map(([k,label])=>{
+    const n = k==='all' ? (cnt.pending||0)+(cnt.approved||0)+(cnt.rejected||0) : (cnt[k]||0);
+    return `<button data-s="${k}" class="${SUGGEST_STATUS===k?'active':''}">${label} ${n}</button>`;
+  }).join('');
+  $('#suggest-chips').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    SUGGEST_STATUS=b.dataset.s; renderSuggest();
+  });
+  if(!d.rows.length){ $('#suggest').innerHTML='<div class="empty">暂无候选（运行 python -m app.runner --mine 生成）</div>'; return; }
+  const stName = {pending:'待审',approved:'已通过',rejected:'已驳回'};
+  const rows = d.rows.map(r=>{
+    const al = attr(r.alias_norm), ca = attr(r.canonical);
+    const act = r.status==='pending'
+      ? `<button class="btn ok" data-a="approve" data-al="${al}" data-ca="${ca}">通过</button>`+
+        `<button class="btn no" data-a="reject" data-al="${al}" data-ca="${ca}">驳回</button>`
+      : `<button class="btn warn" data-a="revoke" data-al="${al}" data-ca="${ca}">撤销</button>`;
+    const cls = r.status==='approved'?'new':(r.status==='rejected'?'drop':'');
+    const it = r.impact_topics, ip = r.impact_platforms;
+    const impact = (it===null||it===undefined)
+      ? '<span style="color:var(--dim)">—</span>'
+      : (it>0
+        ? `<span class="tr new">合并 ${it} 话题 / ${ip} 平台</span>`
+        : '<span class="tr" style="color:var(--dim)">当前影响 0 · 低优先级</span>');
+    return `<tr>
+      <td style="max-width:200px"><b>${esc(r.alias_norm)}</b></td>
+      <td style="max-width:260px">${esc(r.canonical)}</td>
+      <td><span class="pill">${esc(r.source||'—')}</span></td>
+      <td style="color:var(--dim);font-size:12px;max-width:340px">${esc(r.evidence||'')}</td>
+      <td>${impact}</td>
+      <td><span class="tr ${cls}">${stName[r.status]||esc(r.status)}</span></td>
+      <td>${act}</td></tr>`;
+  }).join('');
+  $('#suggest').innerHTML = `<table><thead><tr>
+    <th>别名</th><th>规范词</th><th>来源</th><th>证据</th><th>跨平台影响</th><th>状态</th><th>操作</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+  $('#suggest').querySelectorAll('button[data-a]').forEach(b=>b.onclick=async()=>{
+    b.disabled=true;
+    try{
+      await post('/api/suggest/review',{alias_norm:b.dataset.al, canonical:b.dataset.ca, action:b.dataset.a});
+      await loadSummary();
+    }catch(e){ alert('操作失败：'+e.message); b.disabled=false; return; }
+    await renderSuggest();
+  });
+}
+
+function renderHealth(health){
+  const rows = health.map(h=>`<tr>
+    <td>${esc(NAMES[h.platform_code]||h.platform_code)}</td>
+    <td>${h.total_runs}</td><td>${h.ok_runs}</td><td>${h.failed_runs}</td>
+    <td>${h.avg_ms??'—'}</td><td>${esc(h.last_run||'—')}</td></tr>`).join('');
+  $('#health').innerHTML = `<table><thead><tr>
+    <th>平台</th><th>批次</th><th>成功</th><th>失败</th><th>均耗时(ms)</th><th>最近采集</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ------------------------------ 数据源配置（config/sources.toml 可视化编辑）
+let CFG = [], CFG_META = {}, AVAIL_ADAPTERS = [];
+
+async function renderConfig(){
+  const d = await api('/api/config');
+  CFG = (d.sources||[]).map(s=>({...s}));
+  CFG_META = {path:d.path, enrich_interval_sec:d.enrich_interval_sec,
+    trace_daily_quota:d.trace_daily_quota, defaults:d.defaults||{}};
+  AVAIL_ADAPTERS = d.available_adapters||[];
+  drawConfig();
+}
+
+function drawConfig(){
+  const aOpts = AVAIL_ADAPTERS.map(a=>`<option value="${esc(a.code)}">${esc(a.name)}</option>`).join('');
+  const rows = CFG.map(s=>`<tr data-code="${attr(s.code)}" data-adapter="${attr(s.adapter)}">
+      <td><input type="checkbox" data-f="enabled" ${s.enabled?'checked':''}></td>
+      <td><code>${esc(s.code)}</code></td>
+      <td><input data-f="name" value="${attr(s.name)}" style="width:120px"></td>
+      <td><code>${esc(s.adapter)}</code></td>
+      <td><input type="number" min="5" step="5" data-f="interval_sec" value="${s.interval_sec}" style="width:84px"></td>
+      <td><input type="number" min="0" data-f="max_retries" value="${s.max_retries}" style="width:64px"></td>
+      <td><input type="number" min="0" data-f="retry_delay_sec" value="${s.retry_delay_sec}" style="width:64px"></td>
+      <td><button class="btn no" data-del="${attr(s.code)}">删除</button></td>
+    </tr>`).join('') || '<tr><td colspan="8" class="empty">无数据源</td></tr>';
+  $('#config').innerHTML = `
+    <p class="sub" style="margin:0 0 12px">数据源开关 / 抓取间隔 / 失败重试的唯一事实来源，保存后写回配置文件并同步看板。调度进程 <code>python -m app.runner --schedule</code> 需重启后按新配置生效。</p>
+    <div class="cfgbar">
+      <label class="sub">加工节流(秒) <input id="enrich-iv" type="number" min="10" value="${CFG_META.enrich_interval_sec}" style="width:90px"></label>
+      <label class="sub">每日溯源预算(个) <input id="trace-quota" type="number" min="1" value="${CFG_META.trace_daily_quota}" style="width:90px"></label>
+      <button class="btn ok" id="cfg-save">保存到配置文件</button>
+      <button class="btn" id="cfg-reload">重新载入</button>
+      <span class="sub" style="margin-left:auto">配置文件 <code>${esc(CFG_META.path)}</code></span>
+    </div>
+    <table><thead><tr>
+      <th>启用</th><th>代码</th><th>名称</th><th>适配器</th>
+      <th>间隔(秒)</th><th>重试次数</th><th>重试等待(秒)</th><th>操作</th>
+    </tr></thead><tbody>${rows}</tbody></table>
+    <div class="cfgbar" style="margin-top:14px">
+      <span class="sub">新增数据源</span>
+      <input id="new-code" placeholder="代码 如 weibo" style="width:130px">
+      <input id="new-name" placeholder="名称" style="width:130px">
+      <select id="new-adapter">${aOpts||'<option value="">（无可用适配器）</option>'}</select>
+      <input id="new-iv" type="number" min="5" value="300" style="width:84px">
+      <button class="btn ok" id="cfg-add">添加</button>
+    </div>
+    <div id="cfg-msg" style="margin-top:10px"></div>`;
+  bindConfig();
+}
+
+function cfgMsg(t, cls){
+  const el = $('#cfg-msg');
+  if(el) el.innerHTML = `<span class="${cls==='no'?'msg-no':'msg-ok'}">${esc(t)}</span>`;
+}
+
+function bindConfig(){
+  $('#cfg-reload').onclick = renderConfig;
+  $('#cfg-save').onclick = saveConfig;
+  $('#cfg-add').onclick = ()=>{
+    const code = $('#new-code').value.trim();
+    const name = $('#new-name').value.trim() || code;
+    const adapter = $('#new-adapter').value;
+    const iv = parseInt($('#new-iv').value || '300', 10);
+    if(!code) return cfgMsg('请填写代码', 'no');
+    if(CFG.some(s=>s.code===code)) return cfgMsg('代码已存在：'+code, 'no');
+    if(!adapter) return cfgMsg('没有可用适配器', 'no');
+    CFG.push({code, name, adapter, enabled:true, interval_sec:iv, max_retries:2, retry_delay_sec:5});
+    CFG_META.enrich_interval_sec = parseInt($('#enrich-iv').value || '600', 10);
+    CFG_META.trace_daily_quota = parseInt($('#trace-quota').value || '60', 10);
+    drawConfig();
+    cfgMsg('已加入：'+code+'（点「保存到配置文件」生效）');
+  };
+  $('#config').querySelectorAll('button[data-del]').forEach(b=>b.onclick=()=>{
+    CFG = CFG.filter(s=>s.code!==b.dataset.del);
+    CFG_META.enrich_interval_sec = parseInt($('#enrich-iv').value || '600', 10);
+    CFG_META.trace_daily_quota = parseInt($('#trace-quota').value || '60', 10);
+    drawConfig();
+    cfgMsg('已移除：'+b.dataset.del+'（点「保存到配置文件」生效）');
+  });
+}
+
+async function saveConfig(){
+  const rows = [...document.querySelectorAll('#config tbody tr[data-code]')];
+  const sources = rows.map(tr=>{
+    const g = f => tr.querySelector(`[data-f="${f}"]`);
+    return {
+      code: tr.dataset.code, adapter: tr.dataset.adapter,
+      name: (g('name').value||'').trim(),
+      enabled: g('enabled').checked,
+      interval_sec: parseInt(g('interval_sec').value || '0', 10),
+      max_retries: parseInt(g('max_retries').value || '0', 10),
+      retry_delay_sec: parseInt(g('retry_delay_sec').value || '0', 10),
+    };
+  });
+  const enrich = parseInt($('#enrich-iv').value || '600', 10);
+  const quota = parseInt($('#trace-quota').value || '60', 10);
+  $('#cfg-save').disabled = true;
+  try{
+    const d = await post('/api/config', {sources, enrich_interval_sec:enrich, trace_daily_quota:quota});
+    const sy = d.sync || {};
+    await renderConfig();
+    cfgMsg(`已保存：启用 ${sy.enabled||0}/${sy.configured||0} 个${sy.disabled_removed?`，停用配置外平台 ${sy.disabled_removed} 个`:''}`);
+    await loadSummary();
+    await renderBoard();
+  }catch(e){
+    cfgMsg('保存失败：'+e.message, 'no');
+    $('#cfg-save').disabled = false;
+  }
+}
+
+// ------------------------------ 历史榜单回溯（hot_item 历史留痕查询）
+let HISTORY_Q = '', HISTORY_DATE = '', HISTORY_PLATFORM = 'all';
+
+async function renderHistory(){
+  const d = await api('/api/history?q='+enc(HISTORY_Q)+'&date='+encodeURIComponent(HISTORY_DATE)
+    +'&platform='+encodeURIComponent(HISTORY_PLATFORM)+'&limit=200');
+  const dl = (d.dates||[]).map(x=>`<option value="${x}">`).join('');
+  const pOpts = `<option value="all">全部平台</option>` +
+    Object.keys(NAMES).map(p=>`<option value="${p}" ${HISTORY_PLATFORM===p?'selected':''}>${esc(NAMES[p])}</option>`).join('');
+  const rows = (d.rows||[]).map(r=>`<tr data-p="${attr(r.platform_code)}" data-n="${attr(r.norm_title)}" data-t="${attr(r.title)}" style="cursor:pointer">
+    <td>${esc(NAMES[r.platform_code]||r.platform_code)}</td>
+    <td style="text-align:right">${r.position??'—'}</td>
+    <td style="max-width:380px">${esc(r.title)}${r.is_top?'<span class="tag">置顶</span>':''}${r.source==='split'?'<span class="tag split">盘点拆分</span>':''}${r.label?'<span class="tag">'+esc(r.label)+'</span>':''}</td>
+    <td style="text-align:right">${fmt(r.hot_value)}</td>
+    <td style="color:var(--dim);font-size:12px">${esc((r.captured_at||'').slice(5,16).replace('T',' '))}</td>
+  </tr>`).join('');
+  $('#history').innerHTML = `
+    <div class="cfgbar">
+      <input id="his-q" placeholder="关键词（标题模糊匹配）" value="${attr(HISTORY_Q)}" style="width:220px">
+      <input id="his-date" type="date" value="${esc(HISTORY_DATE)}" list="his-dates">
+      <datalist id="his-dates">${dl}</datalist>
+      <select id="his-platform">${pOpts}</select>
+      <button class="btn ok" id="his-go">查询</button>
+      <button class="btn" id="his-reset">重置</button>
+      <span class="sub" style="margin-left:auto">${(d.rows||[]).length} 条（上限 ${d.limit||200}）</span>
+    </div>
+    ${rows ? `<table><thead><tr>
+      <th>平台</th><th style="text-align:right">名次</th><th>标题</th>
+      <th style="text-align:right">热度</th><th>采集时间</th>
+      </tr></thead><tbody>${rows}</tbody></table>` : '<div class="empty">无匹配记录</div>'}`;
+  $('#his-go').onclick = ()=>{
+    HISTORY_Q = $('#his-q').value.trim();
+    HISTORY_DATE = $('#his-date').value;
+    HISTORY_PLATFORM = $('#his-platform').value;
+    renderHistory();
+  };
+  $('#his-q').onkeydown = e=>{ if(e.key==='Enter') $('#his-go').click(); };
+  $('#his-date').onchange = ()=>$('#his-go').click();
+  $('#his-platform').onchange = ()=>$('#his-go').click();
+  $('#his-reset').onclick = ()=>{ HISTORY_Q=''; HISTORY_DATE=''; HISTORY_PLATFORM='all'; renderHistory(); };
+  $('#history').querySelectorAll('tr[data-p]').forEach(tr=>tr.onclick=()=>openTimeline(
+    tr.dataset.p, tr.dataset.n, tr.dataset.t));
+}
+
+// ------------------------------ 首发溯源（触发事件 + 最早发声点）
+let TRACE_STATUS = 'all';
+const TRACE_TAGS = {pending:['待溯源','new'], active:['已溯源','surge'],
+  paused:['已暂停','drop'], ended:['已结束','']};
+
+function traceStatusTag(s){
+  const [txt, cls] = TRACE_TAGS[s] || [s,''];
+  return `<span class="tr ${cls}">${txt}</span>`;
+}
+
+// 执行溯源：分批循环跑，直到待溯源清空或当日预算用尽（单次请求只跑 CHUNK 个，避免长请求挂死）
+let TRACE_RUNNING = false;
+async function runTraceAll(startPending){
+  if(TRACE_RUNNING) return;
+  TRACE_RUNNING = true;
+  const CHUNK = 5;
+  const setMsg = h => { const m = document.getElementById('trace-msg'); if(m) m.innerHTML = h; };
+  let done = 0, summary = '';
+  try{
+    for(let i=0;i<200;i++){
+      const r = await post('/api/trace/run', {limit: CHUNK});
+      const s = r.stats || {};
+      done += s.traced || 0;
+      if(s.skipped_quota){
+        summary = `<span class="msg-no">今日预算已用尽（${s.quota_used||0}/${s.quota||0}）
+          · 本次共溯源 ${done} 个 · 剩余 ${Math.max(0, startPending-done)} 个待溯源</span>`;
+        break;
+      }
+      if(!s.traced){
+        summary = `<span class="msg-ok">待溯源已清空，本次共溯源 ${done} 个事件</span>`;
+        break;
+      }
+      await renderTrace();
+      setMsg(`溯源中… 已处理 ${done}/${Math.max(startPending, done)} 个（每批 ${CHUNK} 个，联网检索较慢）`);
+    }
+  }catch(e){ summary = `<span class="msg-no">${esc(e.message)}</span>`; }
+  TRACE_RUNNING = false;
+  await renderTrace();
+  setMsg(summary);
+}
+
+async function renderTrace(){
+  const d = await api('/api/trace?status='+encodeURIComponent(TRACE_STATUS)+'&limit=200');
+  const c = d.counts || {};
+  const chips = [['all','全部'],['pending','待溯源'],['active','已溯源'],['paused','已暂停']]
+    .map(([v,t])=>`<button data-s="${v}" class="${TRACE_STATUS===v?'active':''}">${t}
+      ${v==='all'?'':`<span class="sub">${c[v]||0}</span>`}</button>`).join('');
+  const rows = (d.rows||[]).map(r=>{
+    const sig = r.earliest_url
+      ? `<a href="${attr(r.earliest_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(r.earliest_site||'链接')}</a>
+         <div class="sub">${esc((r.earliest_posted_at||'').replace('T',' ').slice(0,16)||'时间未知')}</div>`
+      : '<span class="sub">未产出</span>';
+    const conf = r.confidence==null ? '—'
+      : `<span class="score">${Math.round(r.confidence*100)}%</span>`;
+    const toggleNext = r.status==='paused' ? 'active' : 'paused';
+    return `<tr data-cid="${r.cluster_id}" data-t="${attr(r.title)}">
+      <td style="max-width:340px">${esc(r.title)}${r.is_manual?'<span class="tag">人工</span>':''}
+        <div class="sub">簇 ${r.cluster_id} · ${esc(r.platforms||'')} · 触发=${esc(r.trigger_reason||'')}</div></td>
+      <td><span class="pill">${esc(r.tier)}</span></td>
+      <td>${traceStatusTag(r.status)}</td>
+      <td>${sig}</td>
+      <td style="text-align:right">${conf}</td>
+      <td style="text-align:right;color:var(--dim);font-size:12px">${esc((r.triggered_at||'').slice(5,16).replace('T',' '))}</td>
+      <td onclick="event.stopPropagation()">
+        <button class="btn" data-act="run" data-cid="${r.cluster_id}">溯源</button>
+        <button class="btn warn" data-act="manual" data-cid="${r.cluster_id}">补链</button>
+        <button class="btn ${r.status==='paused'?'ok':'no'}" data-act="toggle"
+          data-cid="${r.cluster_id}" data-next="${toggleNext}">${r.status==='paused'?'恢复':'暂停'}</button>
+      </td>
+    </tr>`;
+  }).join('');
+  $('#trace').innerHTML = `
+    <div class="cfgbar">
+      <button class="btn ok" id="trace-run">执行溯源（${c.pending||0} 个待溯源）</button>
+      <span class="sub">今日预算 ${c.today_used||0}/${c.quota||0} · 已产出首发信号 ${c.with_signal||0} 条 ·
+        覆盖源 ${esc((d.sources||[]).join(' / '))||'—'}</span>
+      <span id="trace-msg" class="sub" style="margin-left:auto"></span>
+    </div>
+    ${rows ? `<table><thead><tr>
+      <th>事件</th><th>层级</th><th>状态</th><th>首发信号（已覆盖源中最早）</th>
+      <th style="text-align:right">置信度</th><th style="text-align:right">触发时间</th><th>操作</th>
+      </tr></thead><tbody>${rows}</tbody></table>` : '<div class="empty">暂无触发事件（等待采集加工或执行 --trace）</div>'}`;
+
+  $('#trace-chips').innerHTML = chips;
+  $('#trace-chips').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    TRACE_STATUS = b.dataset.s; renderTrace();
+  });
+  $('#trace-run').onclick = ()=>runTraceAll(c.pending||0);
+  $('#trace').querySelectorAll('tr[data-cid]').forEach(tr=>tr.onclick=()=>{
+    const r = (d.rows||[]).find(x=>String(x.cluster_id)===tr.dataset.cid);
+    if(r) openTraceCard(r);
+  });
+  $('#trace').querySelectorAll('button[data-act]').forEach(btn=>btn.onclick = async ev=>{
+    ev.stopPropagation();
+    const cid = +btn.dataset.cid, act = btn.dataset.act;
+    const msg = $('#trace-msg');
+    try{
+      if(act==='run'){
+        msg.textContent = '溯源中…';
+        const r = await post('/api/trace/run', {cluster_id: cid});
+        msg.innerHTML = r.signal
+          ? `<span class="msg-ok">已产出首发信号（${esc(r.signal.site||'')}）</span>`
+          : '<span class="msg-no">未找到合格候选（可能搜索源无命中或候选过旧被时间护栏剔除）</span>';
+      }else if(act==='manual'){
+        const url = window.prompt('请输入该事件的首发链接（人工指定，优先于自动结果）：');
+        if(!url) return;
+        await post('/api/trace/manual', {cluster_id: cid, url});
+        msg.innerHTML = '<span class="msg-ok">已记录人工首发链接</span>';
+      }else if(act==='toggle'){
+        await post('/api/trace/status', {cluster_id: cid, status: btn.dataset.next});
+        msg.innerHTML = '<span class="msg-ok">已更新状态</span>';
+      }
+    }catch(e){ msg.innerHTML = `<span class="msg-no">${esc(e.message)}</span>`; }
+    renderTrace();
+  });
+}
+
+function openTraceCard(r){
+  const cov = (r.source_coverage||[]).map(x=>`<span class="pill">${esc(x)}</span>`).join('') || '—';
+  const plan = (r.coverage||[]).map(x=>`<span class="pill">${esc(x)}</span>`).join('') || '—';
+  const conf = r.confidence==null ? '—' : Math.round(r.confidence*100)+'%';
+  $('#modal').innerHTML = `<div class="modal"><div class="modal-box">
+    <span class="close" onclick="document.getElementById('modal').innerHTML=''">×</span>
+    <h3>${esc(r.title)}</h3>
+    <div class="sub">簇 ${r.cluster_id} · 层级 ${esc(r.tier)} · 触发=${esc(r.trigger_reason||'')} ·
+      覆盖平台 ${esc(r.platforms||'')} · 峰值热度 ${fmt(r.peak_hot)} · 最佳名次 ${r.best_position??'—'}</div>
+    <div style="margin-top:12px;padding:12px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px">
+      <div class="sub">首发信号（已覆盖源中最早，非"全网首发"）${r.is_manual?' · <b>人工指定</b>':''}</div>
+      ${r.earliest_url ? `<div style="margin:6px 0"><a href="${attr(r.earliest_url)}" target="_blank" rel="noopener">${esc(r.earliest_title||r.earliest_url)}</a></div>
+        <div>站点：<b>${esc(r.earliest_site||'—')}</b> · 发布：<b>${esc((r.earliest_posted_at||'').replace('T',' ')||'时间未知')}</b> · 置信度：<span class="score">${conf}</span></div>
+        <div class="sub" style="margin-top:8px">${esc(r.content_excerpt||'')}</div>
+        <div class="sub" style="margin-top:8px">覆盖源：${cov}</div>
+        ${r.snapshot_path?`<div style="margin-top:8px"><button class="btn" onclick="openSnapshot('${attr(r.snapshot_path)}')">查看快照</button></div><div id="snapbox"></div>`:''}`
+      : '<div class="empty">暂无首发信号（可点「溯源」重试或「补链」人工指定）</div>'}
+    </div>
+    <div class="legend">计划覆盖源：${plan} · 溯源次数 ${r.trace_count||0} · 上次溯源 ${esc((r.searched_at||'—').replace('T',' '))}</div>
+  </div></div>`;
+}
+
+function openSnapshot(path){
+  // 快照在弹窗内以内嵌 iframe 预览（同源相对路径），避免新标签跳转被浏览器强制升级为 https
+  const box = document.getElementById('snapbox');
+  if(!box) return;
+  if(box.dataset.open === path){ box.innerHTML=''; box.dataset.open=''; return; }
+  box.dataset.open = path;
+  box.innerHTML = `<div class="sub" style="margin-top:8px">快照预览（本地存档原文，脚本已禁用）</div>
+    <iframe src="/api/snapshot?path=${encodeURIComponent(path)}" sandbox="" title="快照预览"
+      style="width:100%;height:460px;border:1px solid var(--line);border-radius:8px;background:#fff;margin-top:6px"></iframe>
+    <div class="sub" style="margin-top:4px">本地存档文件：data/${esc(path)}（若预览空白，多为存档页依赖站外资源，可到该路径直接打开）</div>`;
+}
+
+async function openTimeline(platform, norm, title){
+  const d = await api('/api/timeline?platform='+encodeURIComponent(platform)+'&t='+enc(norm));
+  const pts = d.points||[];
+  $('#modal').innerHTML = `<div class="modal"><div class="modal-box">
+    <span class="close" onclick="document.getElementById('modal').innerHTML=''">×</span>
+    <h3>${esc(title)}</h3>
+    <div class="sub">${esc(NAMES[platform]||platform)} · 历史留痕时间线</div>
+    ${pts.length? chart(pts):'<div class="empty">暂无时间序列</div>'}
+    <div class="legend">横轴：采集时间　纵轴：热度值（蓝）；名次数字标注在点上方</div>
+  </div></div>`;
+}
+function chart(pts){
+  const W=680,H=220,P=36, n=pts.length;
+  const vals=pts.map(p=>p.hot_value||0);
+  const max=Math.max(1,...vals), min=Math.min(...vals,0);
+  const x=i=> n<2?P:(P+(W-2*P)*i/(n-1));
+  const y=v=>H-P-((v-min)/(max-min||1))*(H-2*P);
+  const line=pts.map((p,i)=>`${x(i)},${y(p.hot_value||0)}`).join(' ');
+  const dots=pts.map((p,i)=>`<circle cx="${x(i)}" cy="${y(p.hot_value||0)}" r="3" fill="#4f8cff"/>`+
+    `<text x="${x(i)}" y="${y(p.hot_value||0)-8}" fill="#8b97b3" font-size="10" text-anchor="middle">#${p.position??''}</text>`).join('');
+  const xlab=pts.map((p,i)=> i%Math.ceil(n/6||1)===0 ?
+    `<text x="${x(i)}" y="${H-12}" fill="#8b97b3" font-size="9" text-anchor="middle">${(p.captured_at||'').slice(11,16)}</text>`:'').join('');
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" width="100%">
+    <line x1="${P}" y1="${H-P}" x2="${W-P}" y2="${H-P}" stroke="#28324a"/>
+    <line x1="${P}" y1="${P}" x2="${P}" y2="${H-P}" stroke="#28324a"/>
+    <text x="4" y="${P+4}" fill="#8b97b3" font-size="10">${fmt(max)}</text>
+    ${xlab}${dots}<polyline points="${line}" fill="none" stroke="#4f8cff" stroke-width="2"/>
+  </svg>`;
+}
+
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  ['latest','unified','clusters','entities','suggest','alerts','health','config','history','trace'].forEach(t=>$('#tab-'+t).hidden = t!==b.dataset.tab);
+  if(b.dataset.tab==='unified') renderUnified();
+  if(b.dataset.tab==='clusters') renderClusters();
+  if(b.dataset.tab==='entities') renderEntities();
+  if(b.dataset.tab==='suggest') renderSuggest();
+  if(b.dataset.tab==='alerts') renderAlerts();
+  if(b.dataset.tab==='config') renderConfig();
+  if(b.dataset.tab==='history') renderHistory();
+  if(b.dataset.tab==='trace') renderTrace();
+});
+
+(async function init(){ await loadSummary(); await renderBoard(); })();
+</script>
+</body>
+</html>

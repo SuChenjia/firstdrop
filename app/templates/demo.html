@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FirstDrop · 全网热点聚合与首发溯源</title>
+<style>
+  :root{
+    --bg:#0a0e1a; --bg2:#0f1626; --card:#131b2e; --card2:#1a2339; --line:#24304a;
+    --txt:#e9eef8; --dim:#8a97b5; --accent:#5b8cff; --accent2:#7c5cff;
+    --gold:#f0b35e; --green:#4ade80; --red:#f87171;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{
+    background:var(--bg); color:var(--txt);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    overflow-x:hidden;
+  }
+  /* 背景光效 */
+  .bg-glow{position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden}
+  .bg-glow::before, .bg-glow::after{content:''; position:absolute; border-radius:50%; filter:blur(120px); opacity:.18}
+  .bg-glow::before{width:600px; height:600px; background:var(--accent); top:-200px; right:-100px}
+  .bg-glow::after{width:500px; height:500px; background:var(--accent2); bottom:-150px; left:-100px}
+  .wrap{position:relative; z-index:1; max-width:1200px; margin:0 auto; padding:0 24px}
+
+  /* Lang switch */
+  .lang-switch{position:fixed; top:20px; right:24px; z-index:20; display:inline-flex; align-items:center; gap:8px;
+    background:var(--card); border:1px solid var(--line); border-radius:20px; padding:7px 14px; cursor:pointer;
+    color:var(--dim); font:600 13px/1 inherit; transition:border-color .2s, color .2s}
+  .lang-switch:hover{border-color:var(--accent); color:var(--txt)}
+  .lang-switch .cur{color:var(--accent)}
+
+  /* Header */
+  header{padding:48px 0 32px; text-align:center}
+  .logo{display:inline-flex; align-items:center; gap:10px; margin-bottom:20px}
+  .logo-icon{width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg,var(--accent),var(--accent2));
+    display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700; color:#fff; box-shadow:0 8px 32px rgba(91,140,255,.35)}
+  .logo-text{font-size:26px; font-weight:700; letter-spacing:-.5px; background:linear-gradient(135deg,#fff,#a8b8d8); -webkit-background-clip:text; -webkit-text-fill-color:transparent}
+  h1{font-size:42px; font-weight:800; letter-spacing:-1px; line-height:1.2; margin-bottom:12px}
+  .subtitle{font-size:17px; color:var(--dim); max-width:640px; margin:0 auto 36px}
+
+  /* Stats */
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:48px}
+  .stat-card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px 18px; text-align:center;
+    transition:transform .2s, box-shadow .2s; position:relative; overflow:hidden}
+  .stat-card::before{content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,var(--accent),var(--accent2)); opacity:0; transition:opacity .2s}
+  .stat-card:hover{transform:translateY(-4px); box-shadow:0 12px 40px rgba(0,0,0,.3)}
+  .stat-card:hover::before{opacity:1}
+  .stat-num{font-size:32px; font-weight:800; color:var(--accent); line-height:1.2; font-variant-numeric:tabular-nums}
+  .stat-label{font-size:12px; color:var(--dim); margin-top:6px; text-transform:uppercase; letter-spacing:.5px}
+
+  /* Brief entry */
+  .brief-bar{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:48px}
+  .brief-btn{display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff; font-size:14px; font-weight:600; padding:12px 24px; border-radius:12px; text-decoration:none;
+    transition:transform .2s, box-shadow .2s; box-shadow:0 4px 20px rgba(91,140,255,.3)}
+  .brief-btn:hover{transform:translateY(-2px); box-shadow:0 8px 32px rgba(91,140,255,.45)}
+  .brief-btn svg{width:18px; height:18px}
+
+  /* Section */
+  section{margin-bottom:56px}
+  .sec-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px}
+  .sec-title{font-size:22px; font-weight:700; display:flex; align-items:center; gap:10px}
+  .sec-title svg{width:24px; height:24px; color:var(--accent)}
+  .sec-side{display:flex; align-items:center; gap:12px}
+  .sec-count{font-size:13px; color:var(--dim)}
+  .more-btn{background:none; border:1px solid var(--line); color:var(--dim); border-radius:99px; padding:6px 14px; font-size:12px; cursor:pointer; transition:all .2s}
+  .more-btn:hover{color:var(--accent); border-color:var(--accent)}
+
+  /* Topic Cards */
+  .topic-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px}
+  .topic-card{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:22px;
+    transition:transform .25s, box-shadow .25s, border-color .25s; cursor:pointer; position:relative; overflow:hidden}
+  .topic-card:hover{transform:translateY(-6px); box-shadow:0 16px 48px rgba(0,0,0,.4); border-color:var(--accent)}
+  .topic-card::after{content:''; position:absolute; bottom:0; left:0; right:0; height:60%;
+    background:linear-gradient(to top, rgba(91,140,255,.06), transparent); pointer-events:none}
+  .topic-rank{position:absolute; top:16px; right:16px; font-size:12px; color:var(--dim); font-variant-numeric:tabular-nums}
+  .topic-rank.top3{color:var(--gold); font-weight:700}
+  .topic-title{font-size:17px; font-weight:700; line-height:1.45; margin-bottom:12px; display:-webkit-box;
+    -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; padding-right:32px}
+  .topic-meta{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px}
+  .topic-plat{display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--dim);
+    background:var(--card2); padding:4px 10px; border-radius:20px; border:1px solid var(--line)}
+  .topic-plat i{width:6px; height:6px; border-radius:50%; display:inline-block}
+  .topic-heat{display:flex; align-items:center; gap:8px; font-size:13px}
+  .heat-bar{flex:1; height:6px; background:var(--card2); border-radius:3px; overflow:hidden}
+  .heat-fill{height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:3px;
+    transition:width .8s cubic-bezier(.22,1,.36,1)}
+  .heat-num{color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums; min-width:48px; text-align:right}
+
+  /* Trace Timeline */
+  .timeline{position:relative; padding-left:32px}
+  .timeline::before{content:''; position:absolute; left:11px; top:0; bottom:0; width:2px;
+    background:linear-gradient(to bottom, var(--accent), var(--accent2), transparent); border-radius:1px}
+  .trace-item{position:relative; margin-bottom:24px; opacity:0; transform:translateX(-16px); animation:slideIn .5s forwards}
+  .trace-item:nth-child(1){animation-delay:.1s} .trace-item:nth-child(2){animation-delay:.15s}
+  .trace-item:nth-child(3){animation-delay:.2s} .trace-item:nth-child(4){animation-delay:.25s}
+  .trace-item:nth-child(5){animation-delay:.3s}
+  @keyframes slideIn{to{opacity:1; transform:translateX(0)}}
+  .trace-dot{position:absolute; left:-25px; top:6px; width:14px; height:14px; border-radius:50%;
+    background:var(--bg); border:3px solid var(--accent); z-index:1}
+  .trace-card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px;
+    transition:transform .2s, box-shadow .2s; cursor:pointer}
+  .trace-card:hover{transform:translateX(4px); box-shadow:0 8px 32px rgba(0,0,0,.3); border-color:var(--accent)}
+  .trace-head{display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap}
+  .trace-badge{font-size:11px; font-weight:600; padding:3px 10px; border-radius:12px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; text-transform:uppercase; letter-spacing:.3px}
+  .trace-time{font-size:12px; color:var(--dim); font-variant-numeric:tabular-nums}
+  .trace-title{font-size:16px; font-weight:700; line-height:1.45; margin-bottom:8px}
+  .trace-origin{font-size:13px; color:var(--dim); line-height:1.6}
+  .trace-origin a{color:var(--accent); text-decoration:none; border-bottom:1px dashed var(--accent); transition:opacity .2s}
+  .trace-origin a:hover{opacity:.8}
+  .trace-excerpt{font-size:13px; color:var(--dim); margin-top:10px; padding:12px; background:var(--card2);
+    border-radius:10px; border-left:3px solid var(--accent); line-height:1.6; display:-webkit-box;
+    -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden}
+
+  /* Footer */
+  footer{padding:48px 0 32px; border-top:1px solid var(--line); text-align:center; color:var(--dim); font-size:13px}
+  footer .tech{display:flex; justify-content:center; gap:24px; margin-bottom:16px; flex-wrap:wrap}
+  footer .tech span{display:flex; align-items:center; gap:6px}
+  footer .tech i{width:8px; height:8px; border-radius:50%; background:var(--green); display:inline-block}
+
+  /* Loading */
+  .loading{padding:60px; text-align:center; color:var(--dim)}
+  .loading::after{content:''; display:inline-block; width:20px; height:20px; margin-left:8px;
+    border:2px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:spin 1s linear infinite; vertical-align:middle}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .empty{padding:40px; text-align:center; color:var(--dim); background:var(--card); border-radius:16px; border:1px dashed var(--line)}
+
+  /* Responsive */
+  @media (max-width:768px){
+    h1{font-size:32px}
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .topic-grid{grid-template-columns:1fr}
+    .sec-title{font-size:18px}
+    .lang-switch{top:14px; right:14px}
+  }
+</style>
+</head>
+<body>
+<div class="bg-glow"></div>
+<button class="lang-switch" id="langSwitch" title="Language"><span class="cur" id="langCur">中文</span><span id="langNext">/ EN</span></button>
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">F</div>
+      <div class="logo-text">FirstDrop</div>
+    </div>
+    <h1 id="h1">全网热点，一屏尽览</h1>
+    <p class="subtitle" id="subtitle">聚合 7 大平台热搜，跨平台话题智能对齐，事件首发溯源追踪。不制造信息，只呈现事实。</p>
+    <div class="stats" id="stats">
+      <div class="loading">加载中</div>
+    </div>
+    <div class="brief-bar" id="brief-bar">
+      <a class="brief-btn" id="brief-link" href="/data/briefs/" target="_blank">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        <span id="brief-label">查看今日舆情日报</span>
+      </a>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head">
+      <div class="sec-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        <span id="sec-topics">跨平台热议话题</span>
+      </div>
+      <div class="sec-side">
+        <span class="sec-count" id="topics-count"></span>
+        <button class="more-btn" id="topics-more" style="display:none"></button>
+      </div>
+    </div>
+    <div class="topic-grid" id="topics">
+      <div class="loading">加载中</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="sec-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <span id="sec-trace">事件首发溯源</span>
+      </div>
+      <div class="sec-side">
+        <span class="sec-count" id="traces-count"></span>
+        <button class="more-btn" id="traces-more" style="display:none"></button>
+      </div>
+    </div>
+    <div class="timeline" id="traces">
+      <div class="loading">加载中</div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="tech" id="foot-tech"></div>
+    <p id="foot-note">FirstDrop · 开源热点聚合分析引擎 · 数据来源于各平台公开榜单</p>
+  </footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const fmt = n => n==null ? '—' : Number(n).toLocaleString('en-US');
+const esc = s => (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const PLAT_COLORS = {
+  weibo:'#e6162d', baidu:'#306eff', zhihu:'#0084ff', toutiao:'#f04142',
+  bilibili:'#fb7299', '36kr':'#12b7b5', wallstreetcn:'#1c4c9c'
+};
+
+// ---- 极简 i18n：界面框架双语，事件标题/平台名保留中文原文 ----
+const I18N = {
+  zh: {
+    htmlLang:'zh-CN',
+    docTitle:'FirstDrop · 全网热点聚合与首发溯源',
+    h1:'全网热点，一屏尽览',
+    subtitle:'聚合 7 大平台热搜，跨平台话题智能对齐，事件首发溯源追踪。不制造信息，只呈现事实。',
+    brief:'查看今日舆情日报',
+    secTopics:'跨平台热议话题',
+    secTrace:'事件首发溯源',
+    tech:['7 平台实时采集','跨平台话题对齐','实体归一融合','首发溯源追踪','历史留痕可审计'],
+    foot:'FirstDrop · 开源热点聚合分析引擎 · 数据来源于各平台公开榜单',
+    stats:{topics:'活跃话题', multi:'跨平台话题', signal:'首发溯源', platforms:'覆盖平台', runs:'今日采集', alerts:'预警总数'},
+    peakHeat:'峰值热度',
+    badge:'首发溯源',
+    confidence:'置信度',
+    earliest:'最早出处：',
+    unknownSource:'未知来源',
+    unknownTime:'时间未知',
+    loading:'加载中',
+    emptyTopics:'暂无跨平台话题',
+    emptyTraces:'暂无首发溯源记录',
+    countTotal: n=>`共 ${n} 个`,
+    showAll: n=>`展开全部 ${n} 条`,
+    collapse:'收起',
+    locale:'zh-CN',
+    label:'中文'
+  },
+  en: {
+    htmlLang:'en',
+    docTitle:'FirstDrop · China Trending Topics Tracker',
+    h1:'Track what\'s trending across the Chinese internet',
+    subtitle:'Aggregating trending topics from 7 major platforms, aligning the same event across platforms, and tracing where each story first broke. Headlines stay in their original Chinese.',
+    brief:'View today\'s daily briefing',
+    secTopics:'Cross-platform hot topics',
+    secTrace:'First-source tracing',
+    tech:['Real-time, 7 platforms','Cross-platform alignment','Entity normalization','Origin tracing','Auditable history'],
+    foot:'FirstDrop · Open-source trend aggregation engine · Data from public platform rankings',
+    stats:{topics:'Active topics', multi:'Cross-platform', signal:'Origin traces', platforms:'Platforms', runs:'Collection runs', alerts:'Alerts'},
+    peakHeat:'Peak heat',
+    badge:'ORIGIN',
+    confidence:'Confidence',
+    earliest:'Earliest source: ',
+    unknownSource:'Unknown source',
+    unknownTime:'Time unknown',
+    loading:'Loading',
+    emptyTopics:'No cross-platform topics yet',
+    emptyTraces:'No origin traces yet',
+    countTotal: n=>`${n} total`,
+    showAll: n=>`Show all ${n}`,
+    collapse:'Show less',
+    locale:'en-US',
+    label:'English'
+  }
+};
+
+let LANG = localStorage.getItem('firstdrop_lang')
+  || ((navigator.language||'en').toLowerCase().startsWith('zh') ? 'zh' : 'en');
+const T = () => I18N[LANG];
+
+function renderStatic(){
+  const t = T();
+  document.documentElement.lang = t.htmlLang;
+  document.title = t.docTitle;
+  $('#h1').textContent = t.h1;
+  $('#subtitle').textContent = t.subtitle;
+  $('#brief-label').textContent = t.brief;
+  $('#sec-topics').textContent = t.secTopics;
+  $('#sec-trace').textContent = t.secTrace;
+  $('#foot-note').textContent = t.foot;
+  $('#foot-tech').innerHTML = t.tech.map(x=>`<span><i></i>${esc(x)}</span>`).join('');
+  // 切换按钮：显示当前语言，点击切到另一种
+  $('#langCur').textContent = t.label;
+  $('#langNext').textContent = LANG === 'zh' ? '/ EN' : '/ 中文';
+  // 未加载完成的占位文案
+  ['#stats','#topics','#traces'].forEach(sel=>{
+    const el = $(sel);
+    if(el && el.querySelector('.loading')) el.innerHTML = `<div class="loading">${esc(t.loading)}</div>`;
+  });
+}
+
+function setLang(lang){
+  LANG = lang;
+  localStorage.setItem('firstdrop_lang', lang);
+  renderStatic();
+  loadStats(); loadTopics(); loadTraces(); loadBrief();
+}
+
+async function api(path){
+  const r = await fetch(path);
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
+
+async function loadStats(){
+  const s = await api('/api/summary');
+  const c = s.counts, t = T();
+  const items = [
+    [t.stats.topics, c.topics],
+    [t.stats.multi, c.multi_clusters],
+    [t.stats.signal, c.with_signal || 0],
+    [t.stats.platforms, s.platforms.length],
+    [t.stats.runs, c.runs],
+    [t.stats.alerts, c.alerts]
+  ];
+  $('#stats').innerHTML = items.map(([k,v])=>`
+    <div class="stat-card">
+      <div class="stat-num">${fmt(v)}</div>
+      <div class="stat-label">${k}</div>
+    </div>`).join('');
+}
+
+// ---- 分页展示：首屏各取一页，「展开全部」显示全量；数量徽标让访客看到数据规模 ----
+const PAGE_TOPICS = 12, PAGE_TRACES = 10;
+let TOPICS_ALL = [], TRACES_ALL = [], EXP_TOPICS = false, EXP_TRACES = false;
+
+function topicCardHTML(x, i, maxHeat, t){
+  const plats = (x.platforms||'').split(',').filter(Boolean);
+  const pct = Math.min(100, Math.round((x.peak_hot||0)/maxHeat*100));
+  return `<div class="topic-card" onclick="window.open('/event?id=${x.cluster_id}', '_blank')">
+    <div class="topic-rank ${i<3?'top3':''}">#${i+1}</div>
+    <div class="topic-title">${esc(x.label||'—')}</div>
+    <div class="topic-meta">
+      ${plats.map(p=>`<span class="topic-plat"><i style="background:${PLAT_COLORS[p]||'var(--dim)'}"></i>${esc(p)}</span>`).join('')}
+    </div>
+    <div class="topic-heat">
+      <span style="color:var(--dim);font-size:12px">${esc(t.peakHeat)}</span>
+      <div class="heat-bar"><div class="heat-fill" style="width:${pct}%"></div></div>
+      <span class="heat-num">${fmt(x.peak_hot)}</span>
+    </div>
+  </div>`;
+}
+
+function syncMoreBtn(btnSel, total, page, expanded, t){
+  const btn = $(btnSel);
+  if(total > page){
+    btn.style.display = '';
+    btn.textContent = expanded ? t.collapse : t.showAll(total);
+  }else{
+    btn.style.display = 'none';
+  }
+}
+
+function renderTopics(){
+  const t = T(), list = TOPICS_ALL;
+  if(!list.length){
+    $('#topics').innerHTML = `<div class="empty">${esc(t.emptyTopics)}</div>`;
+    $('#topics-count').textContent = '';
+    $('#topics-more').style.display = 'none';
+    return;
+  }
+  const maxHeat = Math.max(...list.map(y=>y.peak_hot||0), 1);
+  const shown = EXP_TOPICS ? list : list.slice(0, PAGE_TOPICS);
+  $('#topics').innerHTML = shown.map((x,i)=>topicCardHTML(x,i,maxHeat,t)).join('');
+  $('#topics-count').textContent = t.countTotal(list.length);
+  syncMoreBtn('#topics-more', list.length, PAGE_TOPICS, EXP_TOPICS, t);
+}
+
+async function loadTopics(){
+  const data = await api('/api/clusters?min_platforms=2&limit=100');
+  TOPICS_ALL = data.clusters || [];
+  renderTopics();
+}
+
+function traceCardHTML(r, t){
+  const dt = r.earliest_posted_at
+    ? new Date(r.earliest_posted_at).toLocaleString(t.locale, {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
+    : t.unknownTime;
+  const excerpt = (r.content_excerpt||'').slice(0,140);
+  return `<div class="trace-item">
+    <div class="trace-dot"></div>
+    <div class="trace-card" onclick="window.open('${esc(r.earliest_url)}', '_blank')">
+      <div class="trace-head">
+        <span class="trace-badge">${esc(t.badge)}</span>
+        <span class="trace-time">${esc(dt)}</span>
+        <span style="font-size:12px;color:var(--dim);margin-left:auto">${esc(t.confidence)} ${Math.round((r.confidence||0)*100)}%</span>
+      </div>
+      <div class="trace-title">${esc(r.title||'—')}</div>
+      <div class="trace-origin">
+        ${esc(t.earliest)}<a href="${esc(r.earliest_url)}" target="_blank" onclick="event.stopPropagation()">${esc(r.earliest_site||t.unknownSource)}</a>
+      </div>
+      ${excerpt?`<div class="trace-excerpt">${esc(excerpt)}…</div>`:''}
+    </div>
+  </div>`;
+}
+
+function renderTraces(){
+  const t = T(), list = TRACES_ALL;
+  if(!list.length){
+    $('#traces').innerHTML = `<div class="empty">${esc(t.emptyTraces)}</div>`;
+    $('#traces-count').textContent = '';
+    $('#traces-more').style.display = 'none';
+    return;
+  }
+  const shown = EXP_TRACES ? list : list.slice(0, PAGE_TRACES);
+  $('#traces').innerHTML = shown.map(r=>traceCardHTML(r,t)).join('');
+  $('#traces-count').textContent = t.countTotal(list.length);
+  syncMoreBtn('#traces-more', list.length, PAGE_TRACES, EXP_TRACES, t);
+}
+
+async function loadTraces(){
+  const data = await api('/api/trace?status=active&limit=200');
+  TRACES_ALL = (data.rows||[]).filter(r=>r.earliest_url);
+  renderTraces();
+}
+
+$('#topics-more').addEventListener('click', ()=>{ EXP_TOPICS = !EXP_TOPICS; renderTopics(); });
+$('#traces-more').addEventListener('click', ()=>{ EXP_TRACES = !EXP_TRACES; renderTraces(); });
+
+async function loadBrief(){
+  try{
+    const d = new Date();
+    const ymd = d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+    const data = await api('/api/briefs');
+    const target = ymd + (LANG === 'en' ? '-en.html' : '.html');
+    const hit = (data.briefs||[]).find(b=>b.name===target);
+    if(hit){
+      $('#brief-bar').style.display = '';
+      $('#brief-link').href = '/data/briefs/'+hit.name;
+    }else{
+      $('#brief-bar').style.display = 'none';
+    }
+  }catch(e){}
+}
+
+$('#langSwitch').addEventListener('click', ()=> setLang(LANG === 'zh' ? 'en' : 'zh'));
+
+(async()=>{
+  renderStatic();
+  try{
+    await Promise.all([loadStats(), loadTopics(), loadTraces(), loadBrief()]);
+  }catch(e){
+    console.error(e);
+  }
+})();
+</script>
+</body>
+</html>
